@@ -13,8 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: List files
+        run: ls -l scripts/
+
       - name: Make script executable
-        run: chmod +x scripts/script.sh  # ✅ this step is required
+        run: chmod +x scripts/script.sh
 
       - name: Run AutoCoder script
         env:
