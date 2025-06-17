@@ -3,14 +3,14 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-# log every command
+# Log every command
 set -x
 
 # Get inputs from the environment
 GITHUB_TOKEN="$1"
 REPOSITORY="$2"
 ISSUE_NUMBER="$3"
-GROQ_API_KEY="$4"
+OPENAI_API_KEY="$4"
 
 # Function to fetch issue details from GitHub API
 fetch_issue_details() {
@@ -18,16 +18,16 @@ fetch_issue_details() {
          "https://api.github.com/repos/$REPOSITORY/issues/$ISSUE_NUMBER"
 }
 
-# Function to send prompt to the Groq LLaMA model
-send_prompt_to_groq() {
-  curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
-    -H "Authorization: Bearer $GROQ_API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"model\": \"meta-llama/llama-4-scout-17b-16e-instruct\",
-      \"messages\": $MESSAGES_JSON,
-      \"max_tokens\": 1000
-    }"
+# Function to send prompt to the OpenAI ChatGPT model
+send_prompt_to_openai() {
+    curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+        -H "Authorization: Bearer $OPENAI_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"model\": \"gpt-3.5-turbo\",
+            \"messages\": $MESSAGES_JSON,
+            \"max_tokens\": 1000
+        }"
 }
 
 # Function to save code snippet to file
@@ -57,11 +57,11 @@ FULL_PROMPT="$INSTRUCTIONS\n\n$ISSUE_BODY"
 # Prepare message JSON
 MESSAGES_JSON=$(jq -n --arg body "$FULL_PROMPT" '[{"role": "user", "content": $body}]')
 
-# Send prompt to Groq
-RESPONSE=$(send_prompt_to_groq)
+# Send prompt to OpenAI
+RESPONSE=$(send_prompt_to_openai)
 
 if [[ -z "$RESPONSE" ]]; then
-    echo "No response received from the Groq API."
+    echo "No response received from the OpenAI API."
     exit 1
 fi
 
@@ -75,7 +75,7 @@ fi
 
 # Write each file
 for key in $(echo "$FILES_JSON" | jq -r 'keys[]'); do
-    FILENAME=$key
+    FILENAME="$key"
     CODE_SNIPPET=$(echo "$FILES_JSON" | jq -r --arg key "$key" '.[$key]')
     CODE_SNIPPET=$(echo "$CODE_SNIPPET" | sed 's/\r$//') # Normalize line endings
     save_to_file "$FILENAME" "$CODE_SNIPPET"
