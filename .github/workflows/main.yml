@@ -1,29 +1,41 @@
-name: Access Issue Information
+name: AutoCoder Workflow
 
 on:
   issues:
-    types:
-      - opened
-      - reopened
+    types: [opened, reopened]
 
 jobs:
-  access_issue_info:
+  generate_code:
+    if: contains(github.event.issue.labels.*.name, 'autocoder-bot')
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Print Issue Information
+      - name: Make script executable
+        run: chmod +x ./scripts/script.sh  # adjust the path if needed
+
+      - name: Generate Code with ChatGPT
+        id: generate_code
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          ISSUE_ASSIGNEES: ${{ join(github.event.issue.assignees.*.login, ', ') }}
-          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ', ') }}
-        run: |
-          echo "Issue Number: $ISSUE_NUMBER"
-          echo "Issue Title: $ISSUE_TITLE"
-          echo "Issue Body: $ISSUE_BODY"
-          echo "Issue Assignees: $ISSUE_ASSIGNEES"
-          echo "Issue Labels: $ISSUE_LABELS"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: ./scripts/script.sh "$GITHUB_TOKEN" "$REPOSITORY" "$ISSUE_NUMBER" "$OPENAI_API_KEY"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autocoder-artifact
+          path: autocoder-bot/
+
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: autocoder-artifact
+          path: autocoder-artifact
+
+      - name: Display Generated Code
+        run: ls -R autocoder-artifact
