@@ -21,7 +21,7 @@ fetch_issue_details() {
 # Function to send prompt to the OpenAI ChatGPT model
 send_prompt_to_openai() {
     curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-        -H "Authorization: Bearer "$4" \
+        -H "Authorization: Bearer $OPENAI_API_KEY" \
         -H "Content-Type: application/json" \
         -d "{
             \"model\": \"gpt-3.5-turbo\",
