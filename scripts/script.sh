@@ -10,7 +10,7 @@ set -x
 GITHUB_TOKEN="$1"
 REPOSITORY="$2"
 ISSUE_NUMBER="$3"
-OPENAI_API_KEY="$4"
+GROQ_API_KEY="$4"
 
 # Function to fetch issue details from GitHub API
 fetch_issue_details() {
@@ -18,21 +18,22 @@ fetch_issue_details() {
          "https://api.github.com/repos/$REPOSITORY/issues/$ISSUE_NUMBER"
 }
 
-# Function to send prompt to the ChatGPT model (OpenAI API)
-send_prompt_to_chatgpt() {
-curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-    -H "Authorization: Bearer $OPENAI_API_KEY" \
+# Function to send prompt to the Groq LLaMA model
+send_prompt_to_groq() {
+  curl -s -X POST "https://api.groq.com/openai/v1/chat/completions" \
+    -H "Authorization: Bearer $GROQ_API_KEY" \
     -H "Content-Type: application/json" \
-    -d "{\"model\": \"gpt-3.5-turbo\", \"messages\": $MESSAGES_JSON, \"max_tokens\": 500}"
+    -d "{
+      \"model\": \"meta-llama/llama-4-scout-17b-16e-instruct\",
+      \"messages\": $MESSAGES_JSON,
+      \"max_tokens\": 1000
+    }"
 }
-
 
 # Function to save code snippet to file
 save_to_file() {
-    #  the script will save the code snippets to files in a directory named "autocoder-bot" with the filename specified in the JSON object.
     local filename="autocoder-bot/$1"
     local code_snippet="$2"
-
     mkdir -p "$(dirname "$filename")"
     echo -e "$code_snippet" > "$filename"
     echo "The code has been written to $filename"
@@ -47,25 +48,24 @@ if [[ -z "$ISSUE_BODY" ]]; then
     exit 1
 fi
 
-# Define clear, additional instructions for GPT regarding the response format
+# Define additional instructions
 INSTRUCTIONS="Based on the description below, please generate a JSON object where the keys represent file paths and the values are the corresponding code snippets for a production-ready application. The response should be a valid strictly JSON object without any additional formatting, markdown, or characters outside the JSON structure."
 
-# Combine the instructions with the issue body to form the full prompt
+# Combine the instructions with the issue body
 FULL_PROMPT="$INSTRUCTIONS\n\n$ISSUE_BODY"
 
-# Prepare the messages array for the ChatGPT API, including the instructions
+# Prepare message JSON
 MESSAGES_JSON=$(jq -n --arg body "$FULL_PROMPT" '[{"role": "user", "content": $body}]')
 
-# Send the prompt to the ChatGPT model
-RESPONSE=$(send_prompt_to_chatgpt)
+# Send prompt to Groq
+RESPONSE=$(send_prompt_to_groq)
 
 if [[ -z "$RESPONSE" ]]; then
-    echo "No response received from the OpenAI API."
+    echo "No response received from the Groq API."
     exit 1
 fi
 
-# Extract the JSON dictionary from the response
-# Make sure that the extracted content is valid JSON
+# Extract the JSON object containing filenames and code
 FILES_JSON=$(echo "$RESPONSE" | jq -e '.choices[0].message.content | fromjson' 2> /dev/null)
 
 if [[ -z "$FILES_JSON" ]]; then
@@ -73,7 +73,7 @@ if [[ -z "$FILES_JSON" ]]; then
     exit 1
 fi
 
-# Iterate over each key-value pair in the JSON dictionary
+# Write each file
 for key in $(echo "$FILES_JSON" | jq -r 'keys[]'); do
     FILENAME=$key
     CODE_SNIPPET=$(echo "$FILES_JSON" | jq -r --arg key "$key" '.[$key]')
