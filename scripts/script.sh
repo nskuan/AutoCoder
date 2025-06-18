@@ -30,6 +30,8 @@ send_prompt_to_openai() {
         }"
 }
 
+
+
 # Function to save code snippet to file
 save_to_file() {
     local filename="autocoder-bot/$1"
