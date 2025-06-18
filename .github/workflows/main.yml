@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Convert line endings (optional but safe)
+        run: dos2unix scripts/script.sh
 
       - name: Make script executable
         run: chmod +x scripts/script.sh
